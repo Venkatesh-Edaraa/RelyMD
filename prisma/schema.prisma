@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  password  String     // In production, use hashed passwords
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  ownedNotebooks NotebookUser[]
+  notes      Note[]
+
+  @@map("users")
+}
+
+// Notebook model - the shared resource
+model Notebook {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  members     NotebookUser[]
+  notes       Note[]
+
+  @@map("notebooks")
+}
+
+// Junction table for notebook access control
+// Goes beyond "users only see their own data"
+// Allows granular permission management
+model NotebookUser {
+  id         String   @id @default(cuid())
+  userId     String
+  notebookId String
+  role       String   @default("VIEWER")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notebook   Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+
+  // Ensure user can only have one role per notebook
+  @@unique([userId, notebookId])
+  @@map("notebook_users")
+}
+
+// Note model - CRUD operations on this resource
+model Note {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  notebookId String
+  userId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  notebook   Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
